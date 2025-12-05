@@ -1,4 +1,5 @@
 // app/register.tsx
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,11 +10,8 @@ import {
   Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
-import { makeRedirectUri } from "expo-auth-session";
 
 function isValidEmail(email: string) {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -40,9 +38,6 @@ function validatePassword(password: string): string | null {
   return null;
 }
 
-const redirectTo = makeRedirectUri();
-console.log("🔗 REGISTER redirectTo =", redirectTo);
-
 export default function RegisterScreen() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -51,39 +46,16 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordInfo, setShowPasswordInfo] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [infoMsg, setInfoMsg] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  const ensureClientRole = async () => {
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error || !data.user) {
-      await supabase.auth.signOut();
-      setErrorMsg("No se pudo obtener la sesión. Intenta de nuevo.");
-      return false;
-    }
-
-    const role = String((data.user.user_metadata as any)?.role || "").toUpperCase();
-
-    if (role !== "CLIENTE") {
-      await supabase.auth.signOut();
-      setErrorMsg(
-        "Tu cuenta no tiene permisos de CLIENTE para usar esta app."
-      );
-      return false;
-    }
-
-    return true;
-  };
 
   const handleRegister = async () => {
     setErrorMsg("");
     setInfoMsg("");
 
     if (!name || !email || !password) {
-      setErrorMsg("Completa todos los campos.");
+      setErrorMsg("Por favor completa todos los campos.");
       return;
     }
 
@@ -112,11 +84,12 @@ export default function RegisterScreen() {
         options: {
           data: {
             full_name: name.trim(),
-            role: "CLIENTE",
+            role: "CLIENTE", // 👈 el rol se guarda aquí
           },
         },
       });
 
+      // Caso en que el correo ya exista
       if (!error && data?.user && data.user.identities?.length === 0) {
         setErrorMsg("Este correo ya está registrado. Intenta iniciar sesión.");
         return;
@@ -134,16 +107,17 @@ export default function RegisterScreen() {
           setErrorMsg("Este correo ya está registrado. Intenta iniciar sesión.");
         } else if (message.includes("password")) {
           setErrorMsg(
-            "Supabase rechazó la contraseña. Revisa los requisitos e inténtalo de nuevo."
+            "La contraseña no cumple los requisitos. Revisa las indicaciones."
           );
         } else {
-          setErrorMsg(error.message || "Ocurrió un error al registrarte.");
+          setErrorMsg(
+            "Ocurrió un error al registrarte. Intenta de nuevo más tarde."
+          );
         }
 
         return;
       }
 
-      // Si tienes confirmación por correo activa, aquí se envía.
       setInfoMsg("");
       setShowSuccessModal(true);
     } catch (error: any) {
@@ -151,53 +125,6 @@ export default function RegisterScreen() {
       setErrorMsg("Ocurrió un error al registrarte. Intenta de nuevo.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setErrorMsg("");
-    setInfoMsg("");
-    setGoogleLoading(true);
-
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) {
-        console.error("Supabase Google login error:", error);
-        setErrorMsg("No se pudo continuar con Google.");
-        return;
-      }
-
-      if (!data?.url) {
-        setErrorMsg("No se pudo continuar con Google.");
-        return;
-      }
-
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectTo
-      );
-
-      if (result.type !== "success") {
-        setErrorMsg("Inicio de sesión con Google cancelado.");
-        return;
-      }
-
-      const ok = await ensureClientRole();
-      if (!ok) return;
-
-      router.replace("/home");
-    } catch (err: any) {
-      console.error("AuthSession error:", err);
-      setErrorMsg("Ocurrió un error con Google. Intenta de nuevo.");
-    } finally {
-      setGoogleLoading(false);
     }
   };
 
@@ -216,6 +143,14 @@ export default function RegisterScreen() {
 
   return (
     <View className="flex-1 bg-slate-950 px-6 justify-center">
+      {/* Flecha para volver a login */}
+      <TouchableOpacity
+        className="absolute top-12 left-6"
+        onPress={() => router.replace("/login")}
+      >
+        <Ionicons name="arrow-back" size={28} color="#ffffff" />
+      </TouchableOpacity>
+
       {/* Logo + texto */}
       <View className="items-center mb-3">
         <Image
@@ -223,7 +158,7 @@ export default function RegisterScreen() {
           className="w-20 h-20 mb-1"
           resizeMode="contain"
         />
-        <Text className="text-white text-2xl font-bold">ZaHub 🍕</Text>
+        <Text className="text-slate-50 text-2xl font-bold">ZaHub</Text>
       </View>
 
       <Text className="text-slate-200 text-lg text-center mb-5">
@@ -267,8 +202,8 @@ export default function RegisterScreen() {
 
         <View>
           {/* Label + icono info */}
-          <View className="flex-row items-center mb-1">
-            <Text className="text-slate-400 text-sm mr-1">Contraseña</Text>
+          <View className="flex-row items-center mb-1 space-x-1">
+            <Text className="text-slate-400 text-sm">Contraseña</Text>
             <TouchableOpacity
               onPress={togglePasswordInfo}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -316,10 +251,10 @@ export default function RegisterScreen() {
 
       <TouchableOpacity
         className={`bg-red-500 rounded-full py-3 mb-3 items-center ${
-          (loading || googleLoading) && "opacity-70"
+          loading ? "opacity-70" : ""
         }`}
         onPress={handleRegister}
-        disabled={loading || googleLoading}
+        disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color="#ffffff" />
@@ -330,28 +265,8 @@ export default function RegisterScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Google en registro */}
-      <TouchableOpacity
-        className={`bg-slate-50 rounded-full py-3 mb-4 flex-row items-center justify-center ${
-          (loading || googleLoading) && "opacity-70"
-        }`}
-        onPress={handleGoogleLogin}
-        disabled={loading || googleLoading}
-      >
-        {googleLoading ? (
-          <ActivityIndicator color="#111827" />
-        ) : (
-          <>
-            <Ionicons name="logo-google" size={18} color="#111827" />
-            <Text className="text-slate-900 text-sm font-semibold ml-2">
-              Continuar con Google
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
-
       <TouchableOpacity onPress={goToLogin}>
-        <Text className="text-slate-400 text-center">
+        <Text className="text-slate-400 text-center text-sm">
           ¿Ya tienes cuenta?{" "}
           <Text className="text-orange-400 font-semibold">Inicia sesión</Text>
         </Text>

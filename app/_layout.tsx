@@ -1,20 +1,31 @@
 // app/_layout.tsx
+import "../global.css";
+
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { StatusBar } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 
-// Necesario para que AuthSession cierre bien el flujo de OAuth
 WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   return (
     <>
-      <StatusBar style="light" backgroundColor="#020617" />
-      <Stack screenOptions={{ headerShown: false }}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#020617"
+        translucent={false}
+      />
+
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#020617" },
+        }}
+      >
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
-        <Stack.Screen name="home" />
+        <Stack.Screen name="(tabs)" /> 
       </Stack>
     </>
   );
