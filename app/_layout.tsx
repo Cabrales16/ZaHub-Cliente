@@ -2,20 +2,27 @@
 import "../global.css";
 
 import { Stack } from "expo-router";
-import { StatusBar } from "react-native";
+import { StatusBar, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export default function RootLayout() {
-  return (
-    <>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="#020617"
-        translucent={false}
-      />
+function InnerLayout() {
+  const insets = useSafeAreaInsets();
 
+  return (
+    <View
+      style={{
+        flex: 1,
+        // deja espacio de la barra del sistema + un extra para “levantar” la app
+        paddingBottom: insets.bottom + 12, // ajusta 12 a 8/16 según cómo lo veas en tu cel
+        backgroundColor: "#020617",
+      }}
+    >
       <Stack
         screenOptions={{
           headerShown: false,
@@ -25,8 +32,21 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
-        <Stack.Screen name="(tabs)" /> 
+        <Stack.Screen name="(tabs)" />
       </Stack>
-    </>
+    </View>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#020617"
+        translucent={false}
+      />
+      <InnerLayout />
+    </SafeAreaProvider>
   );
 }
